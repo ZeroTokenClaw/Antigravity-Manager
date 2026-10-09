@@ -2,6 +2,7 @@
 
 // pub mod error;
 // pub mod rate_limiter;
+pub mod auto_model_router;
 pub mod client_adapter;
 pub mod client_adapters;
 pub mod json_schema;

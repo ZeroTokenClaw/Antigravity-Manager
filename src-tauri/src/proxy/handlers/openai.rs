@@ -1862,6 +1862,37 @@ pub async fn handle_chat_completions(
             });
     }
 
+    // [AutoRouter] model=Auto_08gg|auto*：提示词分级 + 高→低可用性降级（须在规格解析之前）
+    if crate::proxy::common::auto_model_router::is_auto_model(&openai_req.model) {
+        let msg_values: Vec<Value> = openai_req
+            .messages
+            .iter()
+            .filter_map(|m| serde_json::to_value(m).ok())
+            .collect();
+        let tools_value = openai_req
+            .tools
+            .as_ref()
+            .and_then(|t| serde_json::to_value(t).ok());
+        let available = state.token_manager.get_all_collected_models();
+        if let Some(resolved) = crate::proxy::common::auto_model_router::resolve_auto_model(
+            &openai_req.model,
+            &msg_values,
+            tools_value.as_ref(),
+            Some(&available),
+        ) {
+            info!(
+                "[AutoRouter] {} -> {} -> {} | {} | prompt={:?} | candidates={:?}",
+                resolved.requested,
+                resolved.alias,
+                resolved.target_model,
+                resolved.reason,
+                resolved.prompt_excerpt,
+                resolved.candidates.iter().take(6).collect::<Vec<_>>()
+            );
+            openai_req.model = resolved.target_model;
+        }
+    }
+
     let clean_ms = clean_start.elapsed().as_micros() as f64 / 1000.0;
     let mut norm_ms = 0.0f64;
     let mut think_fill_ms = 0.0f64;
@@ -4881,11 +4912,20 @@ pub async fn handle_completions(
 }
 
 pub async fn handle_list_models(State(state): State<AppState>) -> impl IntoResponse {
+    use crate::proxy::common::auto_model_router::list_auto_model_ids;
     use crate::proxy::common::model_mapping::get_all_dynamic_models;
 
     let only_raw = *state.only_raw_quota_models.read().await;
-    let model_ids =
+    let mut model_ids =
         get_all_dynamic_models(&state.custom_mapping, Some(&state.token_manager), only_raw).await;
+
+    // 暴露 auto / auto-* 别名，供客户端只填 auto 做提示词自动切换
+    for id in list_auto_model_ids() {
+        if !model_ids.iter().any(|m| m == id) {
+            model_ids.push((*id).to_string());
+        }
+    }
+    model_ids.sort();
 
     let data: Vec<_> = model_ids
         .into_iter()
@@ -4912,6 +4952,20 @@ pub async fn handle_retrieve_model(
     axum::extract::Path(model): axum::extract::Path<String>,
 ) -> impl IntoResponse {
     use crate::proxy::common::model_mapping::find_dynamic_model;
+
+    if crate::proxy::common::auto_model_router::is_auto_model(&model) {
+        let id = model.trim().to_ascii_lowercase();
+        return (
+            StatusCode::OK,
+            Json(json!({
+                "id": id,
+                "object": "model",
+                "created": 1706745600,
+                "owned_by": "antigravity"
+            })),
+        )
+            .into_response();
+    }
 
     let only_raw = *state.only_raw_quota_models.read().await;
     if let Some(matched_id) = find_dynamic_model(

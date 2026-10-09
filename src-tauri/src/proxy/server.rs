@@ -614,6 +614,11 @@ impl AxumServer {
                 "/v1/chat/completions",
                 post(handlers::openai::handle_chat_completions),
             )
+            // v2 与 v1 同构：共用 Chat Completions 流水线（含 Auto 提示词路由）
+            .route(
+                "/v2/chat/completions",
+                post(handlers::openai::handle_chat_completions),
+            )
             .route(
                 "/v1/completions",
                 post(handlers::openai::handle_completions),

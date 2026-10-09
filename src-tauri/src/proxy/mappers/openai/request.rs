@@ -654,11 +654,13 @@ pub fn transform_openai_request_with_session(
                         crate::proxy::common::json_schema::fix_tool_call_args(&mut args, original_schema);
                     }
 
+                    let tool_id =
+                        crate::proxy::common::utils::normalize_tool_id(&tc.id).into_owned();
                     let mut func_call_part = json!({
                         "functionCall": {
                             "name": if func_name == "local_shell_call" { "shell" } else { func_name.as_str() },
                             "args": args,
-                            "id": &tc.id,
+                            "id": tool_id,
                         }
                     });
 
@@ -676,13 +678,19 @@ pub fn transform_openai_request_with_session(
                 let name = msg.name.as_deref().unwrap_or("unknown");
                 // 优先从紧邻的前置 assistant 消息中查找匹配该 tool_call_id 的工具名称 (精准杜绝长会话 ID 碰撞时全局 Map 覆盖错误)
                 let matched_preceding_name = if let Some(ref target_id) = msg.tool_call_id {
+                    let target_norm =
+                        crate::proxy::common::utils::normalize_tool_id(target_id);
                     let mut found = None;
                     for prev_idx in (0..msg_index).rev() {
                         if let Some(prev_msg) = request.messages.get(prev_idx) {
                             if prev_msg.role == "assistant" {
                                 if let Some(ref calls) = prev_msg.tool_calls {
                                     for call in calls {
-                                        if call.id == *target_id {
+                                        let call_norm =
+                                            crate::proxy::common::utils::normalize_tool_id(
+                                                &call.id,
+                                            );
+                                        if call_norm.as_ref() == target_norm.as_ref() {
                                             found = if let Some(ref func) = call.function {
                                                 Some(if func.name == "local_shell_call" { "shell".to_string() } else { func.name.clone() })
                                             } else if call.operation.is_some() || call.r#type == "apply_patch_call" {
@@ -788,11 +796,15 @@ pub fn transform_openai_request_with_session(
                     content_val
                 };
 
+                let fr_id = crate::proxy::common::utils::normalize_tool_id(
+                    msg.tool_call_id.as_deref().unwrap_or(""),
+                )
+                .into_owned();
                 let mut fr_part = json!({
                     "functionResponse": {
                        "name": final_name,
                        "response": { "output": final_content },
-                       "id": msg.tool_call_id.clone().unwrap_or_default()
+                       "id": fr_id
                     }
                 });
                 // 危险测试分支法则：tool 响应 (functionResponse) 绝不携带签名

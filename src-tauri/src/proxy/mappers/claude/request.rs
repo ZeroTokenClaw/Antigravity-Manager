@@ -1268,22 +1268,24 @@ fn build_contents(
                             );
                         }
 
+                        let norm_id =
+                            crate::proxy::common::utils::normalize_tool_id(id).into_owned();
                         let mut part = json!({
                             "functionCall": {
                                 "name": name,
                                 "args": final_input,
-                                "id": id
+                                "id": norm_id
                             }
                         });
                         saw_non_thinking = true;
 
                         // Track pending tool use
                         if is_assistant {
-                            pending_tool_use_ids.push(id.clone());
+                            pending_tool_use_ids.push(norm_id.clone());
                         }
 
                         // 记录 id -> name 映射与签名上下文
-                        tool_id_to_name.insert(id.clone(), name.clone());
+                        tool_id_to_name.insert(norm_id.clone(), name.clone());
                         let final_sig = signature
                             .as_ref()
                             .filter(|s| {
@@ -1321,11 +1323,14 @@ fn build_contents(
                         is_error,
                         ..
                     } => {
+                        let tool_use_id =
+                            crate::proxy::common::utils::normalize_tool_id(tool_use_id)
+                                .into_owned();
                         // Mark this tool ID as resolved in this turn
                         current_turn_tool_result_ids.insert(tool_use_id.clone());
                         // 优先使用之前记录的 name，否则用 tool_use_id
                         let func_name = tool_id_to_name
-                            .get(tool_use_id)
+                            .get(&tool_use_id)
                             .cloned()
                             .unwrap_or_else(|| tool_use_id.clone());
 
