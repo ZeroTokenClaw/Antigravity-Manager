@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "bump": "node scripts/bump-version.mjs",
     "tauri": "tauri",
-    "tauri:debug": "RUST_LOG=debug npm run tauri dev"
+    "tauri:debug": "RUST_LOG=debug npm run tauri dev",
+    "package": "build.bat"
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",

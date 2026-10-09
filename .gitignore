@@ -71,6 +71,7 @@ docs/CODEBASE_ALIGNMENT_ANALYSIS.md
 # Captured payload samples (contain real thought signatures — never push)
 testJson/
 
-# Local tools & build installers
+# Local tools & build installers & packaged outputs
 tools/
 *.exe
+release-output/
