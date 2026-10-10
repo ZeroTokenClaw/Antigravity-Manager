@@ -1,0 +1,23 @@
+services:
+  antigravity-manager:
+    image: antigravity-manager:08gg
+    container_name: antigravity-manager
+    network_mode: host
+    volumes:
+      - ${ABV_HOST_DATA_DIR:-/root/.antigravity_tools}:/root/.antigravity_tools
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - RUST_LOG=${RUST_LOG:-info}
+      - PORT=${PORT:-8045}
+      - API_KEY=${API_KEY:?set API_KEY in .env}
+      - WEB_PASSWORD=${WEB_PASSWORD:-}
+      - ABV_BIND_LOCAL_ONLY=${ABV_BIND_LOCAL_ONLY:-false}
+      - ABV_DATA_DIR=${ABV_DATA_DIR:-/root/.antigravity_tools}
+      - ABV_MAX_BODY_SIZE=${ABV_MAX_BODY_SIZE:-104857600}
+      - ABV_DIST_PATH=/app/dist
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"

@@ -75,3 +75,6 @@ testJson/
 tools/
 *.exe
 release-output/
+
+# Local deploy secrets (never commit)
+deploy.env
